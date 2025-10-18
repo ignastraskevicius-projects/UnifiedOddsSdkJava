@@ -6,9 +6,6 @@ on:
       version:
         description: "Release version (e.g. 2.1.0)"
         required: true
-      changelog:
-        description: "Release notes (no version/date header, just changes)"
-        required: true
       is_prerelease:
         description: "Mark as pre-release?"
         type: boolean
