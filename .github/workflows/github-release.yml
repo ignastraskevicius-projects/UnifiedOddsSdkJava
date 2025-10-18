@@ -67,7 +67,7 @@ jobs:
               exit
             }
           }
-          found_first == 1 && found_second == 0 && /^- / {
+          found_first == 1 && found_second == 0 {
             print $0
           }
           ' CHANGELOG.md > notes.md
