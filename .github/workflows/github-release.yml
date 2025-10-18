@@ -6,12 +6,14 @@ on:
       version:
         description: "Release version (e.g. 2.1.0)"
         required: true
-      previous_tag:
-        description: "Previous tag to diff against (e.g. v2.0.0)"
-        required: true
       changelog:
         description: "Release notes (no version/date header, just changes)"
         required: true
+      is_prerelease:
+        description: "Mark as pre-release?"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -42,11 +44,21 @@ jobs:
 
       - name: Prepare release notes (notes.md)
         run: |
-          printf "%s\n" "${{ inputs.changelog }}" > notes.md
-          echo "----" >> notes.md
-          echo "" >> notes.md
-          echo "Diff from ${{ inputs.previous_tag }} to v${{ inputs.version }}:" >> notes.md
-          echo "https://github.com/${{ github.repository }}/compare/${{ inputs.previous_tag }}...v${{ inputs.version }}" >> notes.md
+          awk '
+          BEGIN { found_first = 0; found_second = 0 }
+          /^\*\*/ {
+            if (found_first == 0) {
+              found_first = 1
+              next
+            } else {
+              found_second = 1
+              exit
+            }
+          }
+          found_first == 1 && found_second == 0 && /^- / {
+              print $0
+          }
+          ' CHANGELOG.md > notes.md
 
       - name: Zip sdk-example
         run: |
@@ -57,7 +69,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v${{ inputs.version }}" \
-            --title "v${{ inputs.version }}" \
-            --notes-file notes.md \
-            sdk-example.zip
+          FLAGS=("--title" "v${{ inputs.version }}" "--notes-file" "notes.md")
+          if [ "${{ inputs.is_prerelease }}" = "true" ]; then
+            FLAGS+=("--prerelease")
+          fi
+
+          gh release create "v${{ inputs.version }}" "${FLAGS[@]}" sdk-example.zip    
