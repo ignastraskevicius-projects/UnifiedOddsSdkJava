@@ -71,6 +71,8 @@ jobs:
             print $0
           }
           ' CHANGELOG.md > notes.md
+          cat notes.md
+          cat CHANGELOG.md
 
       - name: Zip sdk-example
         run: |
