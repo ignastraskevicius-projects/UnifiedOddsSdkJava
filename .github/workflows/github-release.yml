@@ -1,0 +1,58 @@
+name: Draft + Publish Release (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 2.1.0)"
+        required: true
+      previous_tag:
+        description: "Previous tag to diff against (e.g. v2.0.0)"
+        required: true
+      changelog:
+        description: "Release notes (no version/date header, just changes)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need tags
+
+      - name: Ensure tag exists (v${{ inputs.version }})
+        run: |
+          set -euo pipefail
+          NEW_TAG="v${{ inputs.version }}"
+          if git rev-parse -q --verify "refs/tags/${NEW_TAG}" >/dev/null; then
+            echo "Tag ${NEW_TAG} already exists."
+          else
+            git tag -a "${NEW_TAG}" -m "${NEW_TAG}"
+            git push origin "${NEW_TAG}"
+          fi
+
+      - name: Prepare release notes (notes.md)
+        run: |
+          printf "%s\n" "${{ inputs.changelog }}" > notes.md
+          echo "----" >> notes.md
+          echo "" >> notes.md
+          echo "Diff from ${{ inputs.previous_tag }} to v${{ inputs.version }}:" >> notes.md
+          echo "https://github.com/${{ github.repository }}/compare/${{ inputs.previous_tag }}...v${{ inputs.version }}" >> notes.md
+
+      - name: Zip sdk-example
+        run: |
+          rm -f sdk-example.zip
+          zip -r sdk-example.zip sdk-example
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ inputs.version }}" \
+            --title "v${{ inputs.version }}" \
+            --notes-file notes.md \
+            sdk-example.zip
